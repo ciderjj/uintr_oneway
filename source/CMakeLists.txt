@@ -44,6 +44,7 @@ add_subdirectory(shm-sync)
 if (NOT APPLE)
 	add_subdirectory(eventfd)
 	add_subdirectory(uintrfd)
+	add_subdirectory(uintr-pro)
 endif()
 
 if (ZMQ_FOUND)
