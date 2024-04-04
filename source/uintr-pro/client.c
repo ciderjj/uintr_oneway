@@ -97,7 +97,10 @@ void setup_client(char* shared_memory) { //客户端的初始化以及注册中�
     struct msghdr m = {NULL, 0, &e, 1, cmsg, sizeof(cmsg), 0};
 
     int n = recvmsg(socket_fd, &m, 0);  //接收文件描述符
-
+    if(n<0)
+    {
+            exit(EXIT_FAILURE);
+    }
     struct cmsghdr *c = CMSG_FIRSTHDR(&m);
 
     int uintrfd_server = *(int*)CMSG_DATA(c);

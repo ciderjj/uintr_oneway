@@ -113,7 +113,7 @@ void setup_server(char* shared_memory) {  //服务器的初始化以及注册中
     strcpy(un.sun_path, "process_b"); //设置套接字地址
     if (bind(socket_fd, (struct sockaddr*)&un, sizeof(un)) < 0) { //绑定套接字
           printf("bind failed\n");
-          return 1;
+          exit(EXIT_FAILURE);
     }
 
     char buf[512];
@@ -122,6 +122,10 @@ void setup_server(char* shared_memory) {  //服务器的初始化以及注册中
     struct msghdr n = {NULL, 0, &f, 1, dmsg, sizeof(dmsg), 0};
 
     int o = recvmsg(socket_fd, &n, 0);
+    if(o<0)
+    {
+            exit(EXIT_FAILURE);
+    }
 
     struct cmsghdr *d = CMSG_FIRSTHDR(&n);
 
