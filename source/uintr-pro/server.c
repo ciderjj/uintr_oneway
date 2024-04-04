@@ -16,7 +16,7 @@
 #include <fcntl.h>
 #include "common/common.h"
 
-#define DEFAULT_MESSAGE_SIZE 1024
+
 
 #ifndef __NR_uintr_register_handler
 #define __NR_uintr_register_handler	471

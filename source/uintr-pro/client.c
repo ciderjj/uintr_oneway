@@ -15,7 +15,7 @@
 #include <sys/epoll.h>
 #include <fcntl.h>
 #include "common/common.h"
-#define DEFAULT_MESSAGE_SIZE 1024
+
 
 #ifndef __NR_uintr_register_handler
 #define __NR_uintr_register_handler	471
@@ -86,7 +86,8 @@ void setup_client(char* shared_memory) { //客户端的初始化以及注册中�
 
     if (bind(socket_fd, (struct sockaddr*)&un, sizeof(un)) < 0) { //绑定套接字
         printf("bind failed\n");
-        return 1;
+		exit(EXIT_FAILURE);
+
     }
 
     char buf[512];
