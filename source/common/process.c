@@ -95,6 +95,7 @@ void start_children(char *prefix, int argc, char *argv[]) {
 	);
 	// clang-format on
 
-	start_child(server_name, argc, argv);
 	start_child(client_name, argc, argv);
+	usleep(1000);
+	start_child(server_name, argc, argv);
 }

@@ -82,7 +82,6 @@ int setup_handler_with_vector(int vector) {
 void setup_server(char* shared_memory) {  //服务器的初始化以及注册中断发送方、中断接收方
 
 	uintrfd_server = setup_handler_with_vector(SERVER_TOKEN);//注册中断处理器并返回对应的文件描述符
-
     int mfd = socket(AF_UNIX, SOCK_DGRAM, 0); // 创建UNIX域数据报套接字
     struct sockaddr_un ad; 
     ad.sun_family = AF_UNIX;
@@ -99,6 +98,7 @@ void setup_server(char* shared_memory) {  //服务器的初始化以及注册中
     *(int*)CMSG_DATA(c) = uintrfd_server; // 设置文件描述符
 
     int ret = sendmsg(mfd, &m, 0);
+
     if (ret == -1) {
         perror("Send message failed");
         exit(EXIT_FAILURE);
@@ -155,8 +155,9 @@ void communicate(char* shared_memory, struct Arguments* args) {
 	// Setup server
 	setup_server(shared_memory);  //初始化服务器
 		// Write
-    setup_benchmarks(&bench);
+    
     char input[] = {"Hello,I'm server\n"};  //输入数据
+	setup_benchmarks(&bench);
     for (message = 0; message < args->count; ++message) {
 	bench.single_start = now();
     
