@@ -81,31 +81,6 @@ int setup_handler_with_vector(int vector) {
 
 void setup_server(char* shared_memory) {  //服务器的初始化以及注册中断发送方、中断接收方
 
-	uintrfd_server = setup_handler_with_vector(SERVER_TOKEN);//注册中断处理器并返回对应的文件描述符
-    int mfd = socket(AF_UNIX, SOCK_DGRAM, 0); // 创建UNIX域数据报套接字
-    struct sockaddr_un ad; 
-    ad.sun_family = AF_UNIX;
-    strcpy(ad.sun_path, "process_a");
-
-    struct iovec e = {NULL, 0};
-    char cmsg[CMSG_SPACE(sizeof(int))];
-    struct msghdr m = {(void*)&ad, sizeof(ad), &e, 1, cmsg, sizeof(cmsg), 0};
-    struct cmsghdr *c = CMSG_FIRSTHDR(&m);
-    c->cmsg_level = SOL_SOCKET;
-    c->cmsg_type = SCM_RIGHTS;
-    c->cmsg_len = CMSG_LEN(sizeof(int));
-
-    *(int*)CMSG_DATA(c) = uintrfd_server; // 设置文件描述符
-
-    int ret = sendmsg(mfd, &m, 0);
-
-    if (ret == -1) {
-        perror("Send message failed");
-        exit(EXIT_FAILURE);
-    }
-
-	//server作为中断发送方工作完成，接下来作为中断接收方注册
-
     int socket_fd = socket(AF_UNIX, SOCK_DGRAM, 0);   //使用UNIX域套接字进行通信 UDP套接字
     struct sockaddr_un un;  //存储UNIX域套接字的地址信息
     un.sun_family = AF_UNIX;   //该套接字地址结构使用UNIX域套接字地址族
@@ -161,6 +136,7 @@ void communicate(char* shared_memory, struct Arguments* args) {
     for (message = 0; message < args->count; ++message) {
 	bench.single_start = now();
     
+
 
     __kfifo_in(fifo, input, strlen(input));  //往无锁队列里写数据
 
