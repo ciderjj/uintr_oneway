@@ -39,19 +39,10 @@
 
 struct __kfifo* fifo;
 
-volatile unsigned long uintr_received[2];
+volatile unsigned long uintr_received;
 int uintrfd_client;
-int uintrfd_server;
-int uipi_index[2];
+int uipi_index;
 
-void __attribute__ ((interrupt))
-     __attribute__((target("general-regs-only", "inline-all-stringops")))
-     ui_handler(struct __uintr_frame *ui_frame,
-		unsigned long long vector) {
-
-		// The vector number is same as the token
-		uintr_received[vector] = 1;
-}
 
 void cleanup(int segment_id, char* shared_memory) {   //清理共享内存
 /*
@@ -64,20 +55,6 @@ void cleanup(int segment_id, char* shared_memory) {   //清理共享内存
 }
 
 
-int setup_handler_with_vector(int vector) {
-	int fd;
-
-	if (uintr_register_handler(ui_handler, 0))  //注册中断处理器
-		printf("Interrupt handler register error\n");
-
-
-	fd = uintr_create_fd(vector, 0);  //创建中断文件描述符
-
-	if (fd < 0)
-		printf("Interrupt vector registration error\n");
-
-	return fd;
-}
 
 void setup_server(char* shared_memory) {  //服务器的初始化以及注册中断发送方、中断接收方
 
@@ -105,56 +82,34 @@ void setup_server(char* shared_memory) {  //服务器的初始化以及注册中
     struct cmsghdr *d = CMSG_FIRSTHDR(&n);
 
     int uintrfd_client = *(int*)CMSG_DATA(d);
-	uipi_index[CLIENT_TOKEN] = uintr_register_sender(uintrfd_client, 0); //注册客户端的uintrfd
+	uipi_index = uintr_register_sender(uintrfd_client, 0); //注册客户端的uintrfd
 
-	_stui();//开启中断
 }
 
-void uintrfd_wait(unsigned int token) {
 
-
-	while (!uintr_received[token]);  //等待中断
-
-	uintr_received[token] = 0;
-}
 
 void uintrfd_notify(unsigned int token) {
 
-	_senduipi(uipi_index[token]);
+	_senduipi(uipi_index);
 
 }
 
 void communicate(char* shared_memory, struct Arguments* args) {
-    struct Benchmarks bench;
 	int message;
 	// Setup server
 	setup_server(shared_memory);  //初始化服务器
 		// Write
     
-    char input[] = {"Hello,I'm server\n"};  //输入数据
+
 	setup_benchmarks(&bench);
     for (message = 0; message < args->count; ++message) {
-	bench.single_start = now();
+	uint64_t timestamp = now();
     
-
-
-    __kfifo_in(fifo, input, strlen(input));  //往无锁队列里写数据
-
+    __kfifo_in(fifo, &timestamp, 8);  //往无锁队列里写数据
 
 	uintrfd_notify(CLIENT_TOKEN);   //通知客户端
-
-	uintrfd_wait(SERVER_TOKEN);  //等待客户端的通知
-
-	fifo->data=shared_memory + sizeof(struct __kfifo);
-
-	char *res = (char*)malloc(sizeof(char)*kfifo_len(fifo));
-
-    __kfifo_out(fifo, res, kfifo_len(fifo));
-
-	benchmark(&bench);
+	
 	}
-
-	evaluate(&bench, args);
 
 
 }

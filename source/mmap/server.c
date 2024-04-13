@@ -42,29 +42,19 @@ void mmap_notify(atomic_char *guard) {
 }
 
 void communicate(char *file_memory, struct Arguments *args) {
-	struct Benchmarks bench;
 	int message;
-	void *buffer = malloc(args->size);
 	atomic_char *guard = (atomic_char *)file_memory;
 
 	mmap_wait(guard);
-	setup_benchmarks(&bench);
-
 	for (message = 0; message < args->count; ++message) {
-		bench.single_start = now();
+		uint64_t timestamp = now();
 
-		memset(file_memory, '*', args->size);
+		memcpy(file_memory+1, &timestamp,8);
 
 		mmap_notify(guard);
+
 		mmap_wait(guard);
-
-		memcpy(buffer, file_memory, args->size);
-
-		benchmark(&bench);
 	}
-
-	evaluate(&bench, args);
-	free(buffer);
 }
 
 int main(int argc, char *argv[]) {

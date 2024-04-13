@@ -19,17 +19,17 @@ void cleanup(int connection, void* buffer) {
 }
 
 void communicate(int connection, struct Arguments* args, int busy_waiting) {
-	struct Benchmarks bench;
+
 	int message;
 	void* buffer;
 
 	buffer = malloc(args->size);
-	setup_benchmarks(&bench);
+
 
 	for (message = 0; message < args->count; ++message) {
-		bench.single_start = now();
+		uint64_t timestamp = now();
 
-		if (send(connection, buffer, args->size, 0) < args->size) {
+		if (send(connection,&timestamp, 8, 0) < args->size) {
 			throw("Error sending on server-side");
 		}
 
@@ -39,10 +39,9 @@ void communicate(int connection, struct Arguments* args, int busy_waiting) {
 			throw("Error receiving on server-side");
 		}
 
-		benchmark(&bench);
 	}
 
-	evaluate(&bench, args);
+
 	cleanup(connection, buffer);
 }
 

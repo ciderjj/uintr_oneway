@@ -9,8 +9,8 @@
 
 #define FIFO_PATH "/tmp/ipc_bench_fifo"
 
-void cleanup(FILE* stream, void* buffer) {
-	free(buffer);
+void cleanup(FILE* stream) {
+	
 	fclose(stream);
 	if (remove(FIFO_PATH) == -1) {
 		throw("Error removing FIFO");
@@ -20,19 +20,14 @@ void cleanup(FILE* stream, void* buffer) {
 void communicate(FILE* stream,
 								 struct Arguments* args,
 								 struct sigaction* signal_action) {
-	struct Benchmarks bench;
+
 	int message;
-	void* buffer;
-
-	buffer = malloc(args->size);
-	setup_benchmarks(&bench);
-
 	wait_for_signal(signal_action);
 
 	for (message = 0; message < args->count; ++message) {
-		bench.single_start = now();
+		uint64_t timestamp = now();
 
-		if (fwrite(buffer, args->size, 1, stream) == 0) {
+		if (fwrite( &timestamp, 8, 1, stream) == 0) {
 			throw("Error writing buffer");
 		}
 		// Send off immediately (for small buffers)
@@ -41,11 +36,11 @@ void communicate(FILE* stream,
 		notify_client();
 		wait_for_signal(signal_action);
 
-		benchmark(&bench);
+	
 	}
 
-	evaluate(&bench, args);
-	cleanup(stream, buffer);
+	
+	cleanup(stream);
 }
 
 FILE* open_fifo() {

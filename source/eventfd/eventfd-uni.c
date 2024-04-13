@@ -7,47 +7,41 @@
 #include "common/common.h"
 
 void client_communicate(int descriptor, struct Arguments* args) {
-	uint64_t timestamp;
-
-	for (; args->count > 0; --args->count) {
-		timestamp = now();
+    struct Benchmarks bench;
+    setup_benchmarks(&bench);
+	int count=args->count;
+	for (; count > 0; --count) {
+	
 
 		// A write *adds* the value stored in the
 		// eventfd to the value in the 8-byte buffer passed.
 		// Here we send the current timestamp to the server
-		if (write(descriptor, &timestamp, 8) == -1) {
-			throw("Error writing to eventfd");
+		if (read(descriptor, &bench.single_start, 8) == -1) {
+			throw("Error reading to eventfd");
 		}
+		benchmark(&bench);
 	}
+	evaluate(&bench, args);
 }
 
 
 void server_communicate(int descriptor, struct Arguments* args) {
 	int message;
-	struct Benchmarks bench;
 
-	setup_benchmarks(&bench);
+
+
 
 	for (message = 0; message < args->count; ++message) {
-		// A read from an eventfd returns the 8-byte integer
-		// stored in the eventfd object *and* resets the value
-		// to zero. That is, if the value is non-zero. If it
-		// is zero and the EFD_NONBLOCK flag was not passed,
-		// the call blocks until the value is indeed nonzero.
-		// If the EFD_SEMAPHORE flag was passed at the start,
-		// the returned value is *always* 1 (if it was nonzero)
-		// and the stored value is decremented by 1 (not reset
-		// to zero). Here we read the start timestamp into the
-		// benchmark object.
-		if (read(descriptor, &bench.single_start, 8) == -1) {
-			throw("Error reading from eventfd");
+		uint64_t timestamp = now();
+
+		if (write(descriptor, &timestamp, 8) == -1) {
+			throw("Error writing from eventfd");
 		}
-		benchmark(&bench);
+
+		
 	}
 
 	// The message size is always one (it's just a signal)
-	args->size = 1;
-	evaluate(&bench, args);
 }
 
 void communicate(int descriptor, struct Arguments* args) {
@@ -76,7 +70,7 @@ int main(int argc, char* argv[]) {
 	// usual read() and write() functions can be used, albeit their
 	// behaviour is different than for standard files.
 	// Stored in the eventfd itself is a simple 64-bit/8-Byte integer.
-	int descriptor;
+	int descriptor; 
 
 	struct Arguments args;
 	parse_arguments(&args, argc, argv);

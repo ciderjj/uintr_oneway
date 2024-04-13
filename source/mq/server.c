@@ -22,15 +22,13 @@ void cleanup(int mq, struct Message* message) {
 
 
 void communicate(int mq, struct Arguments* args) {
-	struct Benchmarks bench;
+
 	struct Message* message;
 	int index;
-
 	message = create_message(args);
-	setup_benchmarks(&bench);
 
 	for (index = 0; index < args->count; ++index) {
-		bench.single_start = now();
+		uint64_t timestamp = now();
 
 		// Messages in message-queues are associated with
 		// a "type", which is simply an identifier for the message
@@ -38,11 +36,11 @@ void communicate(int mq, struct Arguments* args) {
 		// the queue, but fetch only the ones we want, by passing
 		// the type of the message we want to msgrcv().
 		message->type = SERVER_MESSAGE;
-		memset(message->buffer, '2', args->size);
+		memcpy(message->buffer, &timestamp, 8);
 
 		// Same parameters as msgrcv, but no message-type
 		// (because it is determined by the message's member)
-		if (msgsnd(mq, message, args->size, IPC_NOWAIT) == -1) {
+		if (msgsnd(mq, message, 8, IPC_NOWAIT) == -1) {
 			throw("Error sending on server-side");
 		}
 
@@ -69,12 +67,12 @@ void communicate(int mq, struct Arguments* args) {
 			throw("Error receiving on server-side");
 		}
 
-		benchmark(&bench);
+	
 	}
 
 	// Since the buffer size must be fixed
 	// args->size = MESSAGE_SIZE;
-	evaluate(&bench, args);
+
 
 	cleanup(mq, message);
 }

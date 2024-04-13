@@ -144,17 +144,6 @@ int set_io_flag(int socket_fd, int flag) {
 	return 0;
 }
 
-int receive(int connection, void* buffer, int size, int busy_waiting) {
-	if (busy_waiting) {
-		while (recv(connection, buffer, size, 0) < size) {
-			if (errno != EAGAIN) return -1;
-		}
-	} else if (recv(connection, buffer, size, 0) < size) {
-		return -1;
-	}
-
-	return 0;
-}
 
 int get_socket_flags(int socket_fd) {
 	int flags;
@@ -193,4 +182,17 @@ int unset_socket_non_blocking(int socket_fd) {
 
 bool socket_is_non_blocking(int socket_fd) {
 	return get_socket_flags(socket_fd) & O_NONBLOCK;
+}
+
+int receive(int connection, void* buffer, int size, int busy_waiting) {
+	if (busy_waiting) {
+		while (recv(connection, buffer, size, 0) < size) {
+			if (errno != EAGAIN) return -1;
+
+		}
+	} else if (recv(connection, buffer, size, 0) < size) {
+		return -1;
+	}
+
+	return 0;
 }

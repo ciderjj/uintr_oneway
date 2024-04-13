@@ -8,6 +8,7 @@ void communicate(struct sigaction* signal_action, struct Arguments* args) {
 
 	for (; args->count > 0; --args->size) {
 		wait_for_signal(signal_action);
+		
 		notify_server();
 	}
 }

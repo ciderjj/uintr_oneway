@@ -36,7 +36,6 @@ int unset_socket_non_blocking(int socket_fd);
 bool socket_is_non_blocking(int socket_fd);
 
 int set_io_flag(int socket_fd, int flag);
-
 int receive(int connection, void* buffer, int size, int busy_waiting);
 
 #endif /* SOCKETS_H */

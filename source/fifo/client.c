@@ -8,30 +8,30 @@
 
 #define FIFO_PATH "/tmp/ipc_bench_fifo"
 
-void cleanup(FILE *stream, void *buffer) {
-	free(buffer);
+void cleanup(FILE *stream) {
 	fclose(stream);
 }
 
 void communicate(FILE *stream,
 								 struct Arguments *args,
 								 struct sigaction *signal_action) {
-	void *buffer = malloc(args->size);
-
+	struct Benchmarks bench;
+    int count=args->count;
+	setup_benchmarks(&bench);
 	// Server can go
 	notify_server();
 
-	for (; args->count > 0; --args->count) {
+	for (; count > 0; --count) {
 		wait_for_signal(signal_action);
 
-		if (fread(buffer, args->size, 1, stream) == 0) {
+		if (fread(&bench.single_start, 8, 1, stream) == 0) {
 			throw("Error reading buffer");
 		}
-
+        benchmark(&bench);
 		notify_server();
 	}
-
-	cleanup(stream, buffer);
+    evaluate(&bench, args);
+	cleanup(stream); 
 }
 
 FILE *open_fifo(struct sigaction *signal_action) {

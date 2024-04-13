@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
+#include <errno.h>
 #include "common/common.h"
 #include "common/sockets.h"
 
@@ -172,19 +172,19 @@ int accept_communication(int socket_descriptor, int busy_waiting) {
 	return connection;
 }
 
+
+
+
 void communicate(int descriptor, struct Arguments *args, int busy_waiting) {
-	struct Benchmarks bench;
 	void *buffer;
 	int message;
 
-	setup_benchmarks(&bench);
 	buffer = malloc(args->size);
 
 	for (message = 0; message < args->count; ++message) {
-		bench.single_start = now();
-
+        uint64_t timestamp = now();
 		// Send to the client
-		if (send(descriptor, buffer, args->size, 0) == -1) {
+		if (send(descriptor, &timestamp, 8, 0) == -1) {
 			throw("Error sending from server");
 		}
 
@@ -193,10 +193,8 @@ void communicate(int descriptor, struct Arguments *args, int busy_waiting) {
 			throw("Error receving from server");
 		}
 
-		benchmark(&bench);
 	}
 
-	evaluate(&bench, args);
 	cleanup(descriptor, buffer);
 }
 

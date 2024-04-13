@@ -6,4 +6,5 @@
 #include "common/signals.h"
 #include "common/utility.h"
 #include "common/kfifo.h"
+#include <stdint.h>
 #endif /* IPC_BENCH_COMMON_H */

@@ -6,8 +6,11 @@
 #include <string.h>
 #include <sys/shm.h>
 #include <unistd.h>
+#include <stdint.h>
 
 #include "common/common.h"
+
+unsigned long cnt=0;
 
 void cleanup(char* shared_memory) {
 	// Detach the shared memory from this process' address space.
@@ -17,7 +20,9 @@ void cleanup(char* shared_memory) {
 
 void shm_wait(atomic_char* guard) {
 	while (atomic_load(guard) != 'c')
-		;
+		{
+			cnt++;
+		}
 }
 
 void shm_notify(atomic_char* guard) {
@@ -26,24 +31,27 @@ void shm_notify(atomic_char* guard) {
 
 void communicate(char* shared_memory, struct Arguments* args) {
 	// Buffer into which to read data
-	void* buffer = malloc(args->size);
+	struct Benchmarks bench;
+
 
 	atomic_char* guard = (atomic_char*)shared_memory;
-	atomic_init(guard, 's');
 	assert(sizeof(atomic_char) == 1);
-
-	for (; args->count > 0; --args->count) {
+    int count=args->count;
+	setup_benchmarks(&bench);
+	atomic_init(guard, 's');
+	for (; count > 0; --count) {
 		shm_wait(guard);
 		// Read
-		memcpy(buffer, shared_memory + 1, args->size);
-
+		memcpy(&bench.single_start, shared_memory + 1, 8);
+        
+		benchmark(&bench);
 		// Write back
-		memset(shared_memory + 1, '*', args->size);
 
 		shm_notify(guard);
 	}
+	printf("cnt=%lu\n",cnt);
+    evaluate(&bench, args);
 
-	free(buffer);
 }
 
 int main(int argc, char* argv[]) {

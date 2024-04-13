@@ -4,7 +4,7 @@
 #include <string.h>
 #include <sys/un.h>
 #include <unistd.h>
-
+#include <stdint.h>
 #include "common/common.h"
 #include "common/sockets.h"
 
@@ -17,12 +17,15 @@ void cleanup(int connection, void* buffer) {
 
 void communicate(int connection, struct Arguments* args, int busy_waiting) {
 	void* buffer = malloc(args->size);
+    struct Benchmarks bench;
+    int count=args->count;
+	setup_benchmarks(&bench);
 
-	for (; args->count > 0; --args->count) {
-		if (receive(connection, buffer, args->size, busy_waiting) == -1) {
+	for (; count > 0; --count) {
+		if (receive(connection, &bench.single_start,8, busy_waiting) == -1) {
 			throw("Error receiving on client-side");
 		}
-
+        benchmark(&bench);
 		// Dummy operation
 		memset(buffer, '*', args->size);
 
@@ -30,7 +33,7 @@ void communicate(int connection, struct Arguments* args, int busy_waiting) {
 			throw("Error sending on client-side");
 		}
 	}
-
+    evaluate(&bench, args);
 	cleanup(connection, buffer);
 }
 

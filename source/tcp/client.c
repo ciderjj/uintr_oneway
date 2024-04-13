@@ -6,12 +6,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-
+#include <errno.h>
 #include "common/common.h"
 #include "common/sockets.h"
 
 #define PORT "6969"
 #define HOST "localhost"
+
 
 int get_address(struct addrinfo *server_info) {
 	struct addrinfo *iterator;
@@ -75,19 +76,26 @@ void cleanup(int descriptor, void *buffer) {
 	free(buffer);
 }
 
+
+
+
+
+
 void communicate(int descriptor, struct Arguments *args, int busy_waiting) {
 	// Buffer into which to read our data
 	void *buffer;
-
+    struct Benchmarks bench;
 	buffer = malloc(args->size);
-
-	for (; args->count > 0; --args->count) {
+    int count=args->count;
+	setup_benchmarks(&bench);
+	for (; count > 0; --count) {
 		// Receive data
-		if (receive(descriptor, buffer, args->size, busy_waiting) == -1) {
+		if (receive(descriptor, &bench.single_start,8, busy_waiting) == -1) {
 			throw("Error receiving data on client-side");
 		}
 
-		// Dummy operation
+		benchmark(&bench);
+
 		memset(buffer, '*', args->size);
 
 		// Send data back
@@ -95,7 +103,7 @@ void communicate(int descriptor, struct Arguments *args, int busy_waiting) {
 			throw("Error sending data on client-side");
 		}
 	}
-
+    evaluate(&bench, args);
 	cleanup(descriptor, buffer);
 }
 

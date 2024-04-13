@@ -26,48 +26,48 @@ FILE *open_stream(int file_descriptor[2], int to_open) {
 void client_communicate(int file_descriptors[2], struct Arguments *args) {
 	struct sigaction signal_action;
 	FILE *stream;
-	void *buffer;
 
+    struct Benchmarks bench;
 	stream = open_stream(file_descriptors, 0);
 	setup_client_signals(&signal_action);
-	buffer = malloc(args->size);
 
+    setup_benchmarks(&bench);
 	// Set things in motion
+	int count=args->count;
 	notify_server();
-
-	for (; args->count > 0; --args->count) {
+    
+	for (; count > 0; --count) {
 		wait_for_signal(&signal_action);
 
-		if (fread(buffer, args->size, 1, stream) == -1) {
+		if (fread(&bench.single_start, 8, 1, stream) == -1) {
 			throw("Error reading from pipe");
 		}
-
+        benchmark(&bench);
 		notify_server();
 	}
 
 	// Now close the write end too
+	evaluate(&bench, args);
 	close(file_descriptors[1]);
-	free(buffer);
 }
 
 void server_communicate(int file_descriptors[2], struct Arguments *args) {
 	struct sigaction signal_action;
-	struct Benchmarks bench;
+	
 	FILE *stream;
-	void *buffer;
+
 	int message;
 
 	stream = open_stream(file_descriptors, 1);
 	setup_server_signals(&signal_action);
-	buffer = malloc(args->size);
-	setup_benchmarks(&bench);
+
 
 	wait_for_signal(&signal_action);
 
 	for (message = 0; message < args->count; ++message) {
-		bench.single_start = now();
+		uint64_t timestamp = now();
 
-		if (fwrite(buffer, args->size, 1, stream) == -1) {
+		if (fwrite(&timestamp, 8, 1, stream) == -1) {
 			throw("Error writing to pipe");
 		}
 		// Send immediately
@@ -75,14 +75,12 @@ void server_communicate(int file_descriptors[2], struct Arguments *args) {
 
 		notify_client();
 		wait_for_signal(&signal_action);
-		benchmark(&bench);
+		
 	}
-
-	evaluate(&bench, args);
 
 	// Now close the write end too
 	close(file_descriptors[1]);
-	free(buffer);
+
 }
 
 void communicate(int file_descriptors[2], struct Arguments *args) {

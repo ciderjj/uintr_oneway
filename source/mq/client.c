@@ -7,10 +7,11 @@
 
 void communicate(int mq, struct Arguments* args) {
 	struct Message* message;
-
+    struct Benchmarks bench;
 	message = create_message(args);
-
-	for (; args->count > 0; --args->count) {
+    int count=args->count;
+	setup_benchmarks(&bench);
+	for (; count > 0; --count) {
 		// Fetch a message from the queue.
 		// Arguments:
 		// 1. The message-queue identifier.
@@ -29,10 +30,11 @@ void communicate(int mq, struct Arguments* args) {
 		//    will be retrieved. By passing 0, we could say that we
 		//    want *any* kind of message.
 		// 5. Flags, which we don't need.
-		if (msgrcv(mq, message, args->size, SERVER_MESSAGE, 0) < args->size) {
+		if (msgrcv(mq, message, 8, SERVER_MESSAGE, 0) < 8) {
 			throw("Error receiving on client-side");
 		}
-
+		memcpy(&bench.single_start, message->buffer, 8);
+        benchmark(&bench);
 		message->type = CLIENT_MESSAGE;
 		memset(message->buffer, '1', args->size);
 
@@ -44,7 +46,7 @@ void communicate(int mq, struct Arguments* args) {
 			throw("Error sending on client-side");
 		}
 	}
-
+    evaluate(&bench, args);
 	free(message);
 }
 

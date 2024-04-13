@@ -13,13 +13,14 @@ void communicate(struct sigaction* signal_action, struct Arguments* args) {
 		bench.single_start = now();
 
 		notify_client();
+		
 		wait_for_signal(signal_action);
 
 		benchmark(&bench);
 	}
 
 	// "Ignore" the size
-	args->size = 1;
+	args->size = 1; 
 	evaluate(&bench, args);
 }
 

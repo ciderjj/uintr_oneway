@@ -30,7 +30,6 @@ void setup_benchmarks(Benchmarks* bench) {
 
 void benchmark(Benchmarks* bench) {
 	const bench_t time = now() - bench->single_start;
-
 	if (time < bench->minimum) {
 		bench->minimum = time;
 	}
@@ -40,27 +39,20 @@ void benchmark(Benchmarks* bench) {
 	}
 
 	bench->sum += time;
-	bench->squared_sum += (time * time);
 }
 
 void evaluate(Benchmarks* bench, Arguments* args) {
 	assert(args->count > 0);
-	const bench_t total_time = now() - bench->total_start;
 	const double average = ((double)bench->sum) / args->count;
-
-	double sigma = bench->squared_sum / args->count;
-	sigma = sqrt(sigma - (average * average));
-
-	int messageRate = (int)(args->count / (total_time / 1e9));
+	int messageRate = (int)(args->count / ((double)bench->sum/ 1e9));
 
 	printf("\n============ RESULTS ================\n");
 	printf("Message size:       %d\n", args->size);
 	printf("Message count:      %d\n", args->count);
-	printf("Total duration:     %.3f\tms\n", total_time / 1e6);
+	printf("Total duration:     %.3f\tms\n", (double)bench->sum / 1e6);
 	printf("Average duration:   %.3f\tus\n", average / 1000.0);
 	printf("Minimum duration:   %.3f\tus\n", bench->minimum / 1000.0);
 	printf("Maximum duration:   %.3f\tus\n", bench->maximum / 1000.0);
-	printf("Standard deviation: %.3f\tus\n", sigma / 1000.0);
 	printf("Message rate:       %d\tmsg/s\n", messageRate);
 	printf("=====================================\n");
 }

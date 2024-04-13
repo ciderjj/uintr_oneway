@@ -8,7 +8,7 @@
 #include <unistd.h>
 
 #include "common/common.h"
-
+unsigned long cnt=0;
 int get_file_descriptor() {
 	// Open a new file descriptor, creating the file if it does not exist
 	// 0666 = read + write access for user, group and world
@@ -23,7 +23,9 @@ int get_file_descriptor() {
 
 void mmap_wait(atomic_char* guard) {
 	while (atomic_load(guard) != 'c')
-		;
+		{
+			cnt++;
+		}
 }
 
 void mmap_notify(atomic_char* guard) {
@@ -32,21 +34,23 @@ void mmap_notify(atomic_char* guard) {
 
 void communicate(char* file_memory, struct Arguments* args) {
 	// Buffer into which to read data
-	void* buffer = malloc(args->size);
+	struct Benchmarks bench;
 	atomic_char* guard = (atomic_char*)file_memory;
-
+    int count=args->count;
+	setup_benchmarks(&bench);
 	mmap_notify(guard);
 
-	for (; args->count > 0; --args->count) {
+	for (; count > 0; --count) {
 		mmap_wait(guard);
 
-		memcpy(buffer, file_memory, args->size);
-		memset(file_memory, '*', args->size);
+		memcpy(&bench.single_start, file_memory+1, 8);
+		benchmark(&bench);
 
 		mmap_notify(guard);
 	}
 
-	free(buffer);
+	printf("cnt=%lu\n",cnt);
+    evaluate(&bench, args);
 }
 
 
@@ -83,7 +87,7 @@ int main(int argc, char* argv[]) {
 	// clang-format off
   file_memory = mmap(
 		NULL,
-		args.size,
+		args.size+1,
 		PROT_READ | PROT_WRITE,
 		MAP_SHARED,
 		file_descriptor,
