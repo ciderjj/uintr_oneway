@@ -10,7 +10,7 @@
 
 #include "common/common.h"
 
-unsigned long cnt=0;
+
 
 void cleanup(char* shared_memory) {
 	// Detach the shared memory from this process' address space.
@@ -19,10 +19,8 @@ void cleanup(char* shared_memory) {
 }
 
 void shm_wait(atomic_char* guard) {
-	while (atomic_load(guard) != 'c')
-		{
-			cnt++;
-		}
+        while (atomic_load(guard) != 'c');
+
 }
 
 void shm_notify(atomic_char* guard) {
@@ -49,7 +47,7 @@ void communicate(char* shared_memory, struct Arguments* args) {
 
 		shm_notify(guard);
 	}
-	printf("cnt=%lu\n",cnt);
+
     evaluate(&bench, args);
 
 }

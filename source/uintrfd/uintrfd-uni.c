@@ -25,7 +25,7 @@
 #define uintr_register_sender(fd, flags)	syscall(__NR_uintr_register_sender, fd, flags)
 #define uintr_unregister_sender(ipi_idx, flags)	syscall(__NR_uintr_unregister_sender, ipi_idx, flags)
 #define uintr_wait(flags)			syscall(__NR_uintr_wait, flags)
-
+unsigned long cnt=0;
 volatile unsigned long uintr_received;
 volatile unsigned int uintr_count = 0;
 int descriptor;
@@ -69,12 +69,17 @@ void *client_communicate(void *arg) {
 
 void server_communicate(int descriptor, struct Arguments* args) {
 
-	while (uintr_count < args->count) {
-		//Keep spinning until all user interrupts are delivered.
+	for (loop = args->count; loop > 0; --loop) {
+
+		while (!uintr_received){
+			// Keep spinning until this user interrupt is received.
+			cnt++;
+		}
 	}
 
 	// The message size is always one (it's just a signal)
 	args->size = 1;
+	printf("cnt: %lu\n", cnt);
 	evaluate(&bench, args);
 }
 
