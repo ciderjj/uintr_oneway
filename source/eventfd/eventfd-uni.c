@@ -9,43 +9,38 @@
 #include "common/common.h"
 
 void client_communicate(int descriptor, struct Arguments* args) {
+    unsigned long cnt = 0;
     struct Benchmarks bench;
     setup_benchmarks(&bench);
-    int count = args->count;
-    for (; count > 0; --count) {
-        // Set the file descriptor to non-blocking mode
-        int flags = fcntl(descriptor, F_GETFL, 0);
-        fcntl(descriptor, F_SETFL, flags | O_NONBLOCK);
-
-
+    struct timeval startTime, currentTime;
+    gettimeofday(&startTime, NULL);
         while (1) {
-            if (read(descriptor, &bench.single_start, sizeof(uint64_t)) == -1) {
-                if (errno == EAGAIN) {
-                    // No data available, continue to try reading
-                    continue;
-                } else {
-                    perror("Error reading from eventfd");
-                    exit(EXIT_FAILURE);
-                }
-            }
-            if (errno != EAGAIN) {
-                // Data read successfully
-                break;
-            }
-        }
-        benchmark(&bench);
+            gettimeofday(&currentTime, NULL);
+    	    if ((currentTime.tv_usec - startTime.tv_usec) > 100000) {
+        	break;
     }
-    evaluate(&bench, args);
+            
+            if (read(descriptor, &bench.single_start, 8) == -1) {
+                    perror("Error reading from eventfd");
+                    exit(EXIT_FAILURE);   
+            }      
+            printf("client=%ld\n",bench.single_start);
+        benchmark(&bench);
+        cnt++;
+        }
+        printf("\ncnt=%ld",cnt);
+        evaluate(&bench, args);
 }
 
 void server_communicate(int descriptor, struct Arguments* args) {
-    int message;
-    for (message = 0; message < args->count; ++message) {
+  
+    while (1) {
         uint64_t timestamp = now();
-        if (write(descriptor, &timestamp, sizeof(uint64_t)) == -1) {
+        if (write(descriptor, &timestamp, 8) == -1) {
             perror("Error writing to eventfd");
             exit(EXIT_FAILURE);
         }
+        printf("server=%ld\n",timestamp);
     }
 }
 
