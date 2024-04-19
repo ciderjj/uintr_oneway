@@ -177,21 +177,21 @@ int accept_communication(int socket_descriptor, int busy_waiting) {
 
 void communicate(int descriptor, struct Arguments *args, int busy_waiting) {
 	void *buffer;
-	int message;
 
 	buffer = malloc(args->size);
 
-	for (message = 0; message < args->count; ++message) {
+	while(1) {
+		// Read from client
+		if (receive(descriptor, buffer, args->size, busy_waiting) == -1) {
+			throw("Error receving from server");
+		}
         uint64_t timestamp = now();
 		// Send to the client
 		if (send(descriptor, &timestamp, 8, 0) == -1) {
 			throw("Error sending from server");
 		}
 
-		// Read from client
-		if (receive(descriptor, buffer, args->size, busy_waiting) == -1) {
-			throw("Error receving from server");
-		}
+	
 
 	}
 

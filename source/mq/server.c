@@ -24,17 +24,15 @@ void cleanup(int mq, struct Message* message) {
 void communicate(int mq, struct Arguments* args) {
 
 	struct Message* message;
-	int index;
+	
 	message = create_message(args);
 
-	for (index = 0; index < args->count; ++index) {
+	while(1) {
+		if (msgrcv(mq, message, args->size, CLIENT_MESSAGE, 0) < args->size) {
+			throw("Error receiving on server-side");
+		}
 		uint64_t timestamp = now();
 
-		// Messages in message-queues are associated with
-		// a "type", which is simply an identifier for the message
-		// kind. This way, we can put different kinds of messages on
-		// the queue, but fetch only the ones we want, by passing
-		// the type of the message we want to msgrcv().
 		message->type = SERVER_MESSAGE;
 		memcpy(message->buffer, &timestamp, 8);
 
@@ -44,28 +42,7 @@ void communicate(int mq, struct Arguments* args) {
 			throw("Error sending on server-side");
 		}
 
-		// Fetch a message from the queue.
-		// Arguments:
-		// 1. The message-queue identifier.
-		// 2. A pointer to our message, which may be any
-		//    data-structure, as long as its first member is of
-		//    type long and holds the type of the message. As
-		//    such, there exists a template data-structure
-		//    struct msbgf { long mtype; char mtext[1]; };
-		//    to demonstrate how such a message should look like.
-		//    I.e., it has its type member and exactly one more
-		//    member, pointing to the data to send.
-		// 3. The size of the message, excluding the type member.
-		// 4. The message type/kind to fetch. The point is, that
-		//    you can put many kinds of messages on the queue, but
-		//    in this case only the first one with type = CLIENT_MESSAGE
-		//    will be retrieved. By passing 0, we could say that we
-		//    want *any* kind of message. This call will block until
-		//    such a message is available in the queue.
-		// 5. Flags, which we don't need.
-		if (msgrcv(mq, message, args->size, CLIENT_MESSAGE, 0) < args->size) {
-			throw("Error receiving on server-side");
-		}
+		
 
 	
 	}

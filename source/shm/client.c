@@ -12,6 +12,7 @@
 
 
 
+
 void cleanup(char* shared_memory) {
 	// Detach the shared memory from this process' address space.
 	// If this is the last process using this shared memory, it is removed.
@@ -27,28 +28,15 @@ void shm_notify(atomic_char* guard) {
 	atomic_store(guard, 's');
 }
 
-void communicate(char* shared_memory, struct Arguments* args) {
-	// Buffer into which to read data
-	struct Benchmarks bench;
 
-
-	atomic_char* guard = (atomic_char*)shared_memory;
-	assert(sizeof(atomic_char) == 1);
-    int count=args->count;
-	setup_benchmarks(&bench);
-	atomic_init(guard, 's');
-	for (; count > 0; --count) {
-		shm_wait(guard);
+void msg_wait(atomic_char*guard,char*shared_memory,Benchmarks* bench) {
+	    shm_wait(guard);
 		// Read
-		memcpy(&bench.single_start, shared_memory + 1, 8);
-        
-		benchmark(&bench);
+		memcpy(&bench->single_start, shared_memory + 1, 8);
+
+		benchmark(bench);
 		// Write back
-
-		shm_notify(guard);
-	}
-
-    evaluate(&bench, args);
+		
 
 }
 
@@ -56,6 +44,7 @@ int main(int argc, char* argv[]) {
 	// The identifier for the shared memory segment
 	int segment_id;
 
+    unsigned long cnt=0;
 	// The *actual* shared memory, that this and other
 	// processes can read and write to as if it were
 	// any other plain old memory
@@ -71,51 +60,43 @@ int main(int argc, char* argv[]) {
 
 	segment_key = generate_key("shm");
 
-	/*
-		The call that actually allocates the shared memory segment.
-		Arguments:
-			1. The shared memory key. This must be unique across the OS.
-			2. The number of bytes to allocate. This will be rounded up to the OS'
-				 pages size for alignment purposes.
-			3. The creation flags and permission bits, we pass IPC_CREAT to ensure
-				 that the segment will be created if it does not yet exist. Using
-				 0666 for permission flags means read + write permission for the user,
-				 group and world.
-		The call will return the segment ID if the key was valid,
-		else the call fails.
-	*/
 	segment_id = shmget(segment_key, 1 + args.size, IPC_CREAT | 0666);
 
 	if (segment_id < 0) {
 		throw("Could not get segment");
 	}
 
-	/*
-	Once the shared memory segment has been created, it must be
-	attached to the address space of each process that wishes to
-	use it. For this, we pass:
-		1. The segment ID returned by shmget
-		2. A pointer at which to attach the shared memory segment. This
-			 address must be page-aligned. If you simply pass NULL, the OS
-			 will find a suitable region to attach the segment.
-		3. Flags, such as:
-			 - SHM_RND: round the second argument (the address at which to
-				 attach) down to a multiple of the page size. If you don't
-				 pass this flag but specify a non-null address as second argument
-				 you must ensure page-alignment yourself.
-			 - SHM_RDONLY: attach for reading only (independent of access bits)
-	shmat will return a pointer to the address space at which it attached the
-	shared memory. Children processes created with fork() inherit this segment.
-*/
 	shared_memory = (char*)shmat(segment_id, NULL, 0);
 
 	if (shared_memory < (char*)0) {
 		throw("Could not attach segment");
 	}
 
-	communicate(shared_memory, &args);
+	//communicate(shared_memory, &args);
+    atomic_char* guard = (atomic_char*)shared_memory;
+	struct Benchmarks bench;
+	setup_benchmarks(&bench);
+	//shm_notify(guard);
+	//初始化完成
+	struct timeval startTime, currentTime;
 
+    gettimeofday(&startTime, NULL);
+    
+    while (1) 
+	{
+	
+    	gettimeofday(&currentTime, NULL);
+    	if ((currentTime.tv_usec - startTime.tv_usec) > 100000) {
+        	break;
+    }
+        shm_notify(guard);
+   		msg_wait(guard,shared_memory,&bench);
+    	cnt++;
+    }
+	printf("\ncnt=%ld",cnt);
+    evaluate(&bench, &args);
 	cleanup(shared_memory);
 
 	return EXIT_SUCCESS;
 }
+

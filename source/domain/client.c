@@ -15,27 +15,7 @@ void cleanup(int connection, void* buffer) {
 	free(buffer);
 }
 
-void communicate(int connection, struct Arguments* args, int busy_waiting) {
-	void* buffer = malloc(args->size);
-    struct Benchmarks bench;
-    int count=args->count;
-	setup_benchmarks(&bench);
 
-	for (; count > 0; --count) {
-		if (receive(connection, &bench.single_start,8, busy_waiting) == -1) {
-			throw("Error receiving on client-side");
-		}
-        benchmark(&bench);
-		// Dummy operation
-		memset(buffer, '*', args->size);
-
-		if (send(connection, buffer, args->size, 0) == -1) {
-			throw("Error sending on client-side");
-		}
-	}
-    evaluate(&bench, args);
-	cleanup(connection, buffer);
-}
 
 void setup_socket(int connection, int busy_waiting) {
 	int return_code;
@@ -117,7 +97,8 @@ int main(int argc, char* argv[]) {
 	// File descriptor for the socket over which
 	// the communciation will happen with the client
 	int connection;
-
+    
+	unsigned long cnt = 0;
 	// Flag to determine whether or not to
 	// do busy-waiting and non-blocking calls
 	int busy_waiting;
@@ -129,7 +110,34 @@ int main(int argc, char* argv[]) {
 	parse_arguments(&args, argc, argv);
 
 	connection = create_connection(busy_waiting);
-	communicate(connection, &args, busy_waiting);
+	struct Benchmarks bench;
+	setup_benchmarks(&bench);
+	void *buffer;
+	buffer = malloc(args.size);
+	//初始化完成
+	struct timeval startTime, currentTime;
+    gettimeofday(&startTime, NULL);
+	//communicate(connection, &args, busy_waiting);
+    while (1) 
+	{
+	    
+    	gettimeofday(&currentTime, NULL);
+    	if ((currentTime.tv_usec - startTime.tv_usec) > 100000) {
+        	break;
+    }
+        if (send(connection, buffer, args.size, 0) == -1) {
+			throw("Error sending on client-side");
+		}
+   		if (receive(connection, &bench.single_start,8, busy_waiting) == -1) {
+			throw("Error receiving on client-side");
+		}
 
+		benchmark(&bench);
+    	cnt++;
+    }
+	printf("\ncnt=%ld\n",cnt);
+    evaluate(&bench, &args);
+	cleanup(connection, buffer);
 	return EXIT_SUCCESS;
 }
+

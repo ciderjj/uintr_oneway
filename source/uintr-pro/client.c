@@ -38,17 +38,21 @@
 
 struct __kfifo* fifo;
 unsigned long cnt=0;
-volatile unsigned long uintr_received[2];   //用于存储客户端和服务器的uintrfd
+volatile unsigned long uintr_received;   //用于存储客户端和服务器的uintrfd
 int uintrfd_client;
-int uintrfd_server;
-int uipi_index[2];  //客户端和服务器的uipi索引
+
+int uipi_index;  //客户端和服务器的uipi索引
+struct Benchmarks bench;
+char* shared_memory;  //共享内存
 
 void __attribute__ ((interrupt))  //声明一个中断处理函数
      __attribute__((target("general-regs-only", "inline-all-stringops")))
      ui_handler(struct __uintr_frame *ui_frame,
 		unsigned long long vector) {
 
-		uintr_received[vector] = 1;   //收到中断后将对应的uintr_received置1
+	fifo->data=shared_memory + sizeof(struct __kfifo);
+    __kfifo_out(fifo, &bench.single_start, kfifo_len(fifo));
+
 }
 
 void cleanup(char* shared_memory) {  //清理共享内存
@@ -58,57 +62,7 @@ void cleanup(char* shared_memory) {  //清理共享内存
 }
 
 
-int setup_handler_with_vector(int vector) {  //注册中断处理器并返回对应的文件描述符
-	int fd;
-
-	if (uintr_register_handler(ui_handler, 0))  //注册中断处理器
-		printf("Interrupt handler register error\n");
-
-	
-	fd = uintr_create_fd(vector, 0);  //创建中断文件描述符
-
-	if (fd < 0)
-		printf("Interrupt vector registration error\n");
-
-	return fd;
-}
-
 void setup_client(char* shared_memory) { //客户端的初始化以及注册中断接收方、中断发送方
-
-    int socket_fd = socket(AF_UNIX, SOCK_DGRAM, 0);   //使用UNIX域套接字进行通信 UDP套接字
-
-    struct sockaddr_un un;  //存储UNIX域套接字的地址信息
-
-    un.sun_family = AF_UNIX;   //该套接字地址结构使用UNIX域套接字地址族
-
-    unlink("process_a");  //清除之前创建的UNIX域套接字文件
-    strcpy(un.sun_path, "process_a"); //设置套接字地址
-
-    if (bind(socket_fd, (struct sockaddr*)&un, sizeof(un)) < 0) { //绑定套接字
-        printf("bind failed\n");
-		exit(EXIT_FAILURE);
-
-    }
-
-    char buf[512];
-    struct iovec e = {buf, 512};
-
-    char cmsg[CMSG_SPACE(sizeof(int))];
-    struct msghdr m = {NULL, 0, &e, 1, cmsg, sizeof(cmsg), 0};
-
-    int n = recvmsg(socket_fd, &m, 0);  //接收文件描述符
-    if(n<0)
-    {
-            exit(EXIT_FAILURE);
-    }
-    struct cmsghdr *c = CMSG_FIRSTHDR(&m);
-
-    int uintrfd_server = *(int*)CMSG_DATA(c);
-
-	uipi_index[SERVER_TOKEN] = uintr_register_sender(uintrfd_server, 0);
-
-	//client作为中断接收方注册成功，接下来作为中断发送方
-    uintrfd_client = setup_handler_with_vector(CLIENT_TOKEN);  //注册中断处理器并返回对应的文件描述符
 
 	int mfd = socket(AF_UNIX, SOCK_DGRAM, 0); // 创建UNIX域数据报套接字
     struct sockaddr_un ad; 
@@ -141,64 +95,13 @@ void destroy_client() {   //销毁客户端
 
 }
 
-void uintrfd_wait(unsigned int token) {  //等待中断
-
-	
-	while (!uintr_received[token])
-	{
-		cnt++;
-	}  //等待中断
-
-	uintr_received[token] = 0;  //收到中断后将对应的uintr_received置0
-}
-
-void uintrfd_notify(unsigned int token) {  //通知中断
-
-	_senduipi(uipi_index[token]);
-
-}
-
-void communicate(char* shared_memory, struct Arguments* args) {    //通信函数
-
-
-	setup_client(shared_memory);  //客户端的初始化
-    struct Benchmarks bench;
-    char input[] = {"Hello,I'm client\n"};  //输入数据
-	
-    int count=args->count;
-	setup_benchmarks(&bench);
-	
-    for (; count > 0; --count) {
-
-	uintrfd_wait(CLIENT_TOKEN);
-		// Read
-	fifo->data=shared_memory + sizeof(struct __kfifo);
-
-	
-	
-    __kfifo_out(fifo, &bench.single_start, kfifo_len(fifo));
-    // 打印读取的数据
-    // Print buffer contents
-  
-		// Write back
-	benchmark(&bench);
-
-    __kfifo_in(fifo, input, strlen(input));  //往无锁队列里写数据
-
- 
-	uintrfd_notify(SERVER_TOKEN);
-
-    }
-	printf("cnt=%lu\n",cnt);
-    evaluate(&bench, args);
-	destroy_client();
-
-}
 
 int main(int argc, char* argv[]) {
-	int segment_id;   //共享内存的标识符
+	unsigned long cnt=0;
 
-	char* shared_memory;  //共享内存
+    int segment_id;   //共享内存的标识符
+
+	
 
 	key_t segment_key;  //共享内存的key
 
@@ -219,10 +122,27 @@ int main(int argc, char* argv[]) {
 	}
 
     fifo = (struct __kfifo*) shared_memory;
-
-	communicate(shared_memory, &args);
-
+    
+    setup_benchmarks(&bench);
+    //初始化完成
+    setup_client(shared_memory);  //客户端的初始化
+    struct timeval startTime, currentTime;
+    gettimeofday(&startTime, NULL);
+    while (1) 
+	{
+	
+    	gettimeofday(&currentTime, NULL);
+    	if ((currentTime.tv_usec - startTime.tv_usec) > 100000) {
+        	break;
+    }
+    	cnt++;
+    }
+    printf("\ncnt=%ld",cnt);
+    evaluate(&bench, &args);
+	destroy_client();
 	cleanup(shared_memory);
 
 	return EXIT_SUCCESS;
 }
+
+

@@ -5,49 +5,15 @@
 #include "common/common.h"
 #include "mq/mq-common.h"
 
-void communicate(int mq, struct Arguments* args) {
-	struct Message* message;
-    struct Benchmarks bench;
-	message = create_message(args);
-    int count=args->count;
-	setup_benchmarks(&bench);
-	for (; count > 0; --count) {
-		// Fetch a message from the queue.
-		// Arguments:
-		// 1. The message-queue identifier.
-		// 2. A pointer to our message, which may be any
-		//    data-structure, as long as its first member is of
-		//    type long and holds the type of the message. As
-		//    such, there exists a template data-structure
-		//    struct msbgf { long mtype; char mtext[1]; };
-		//    to demonstrate how such a message should look like.
-		//    I.e., it has its type member and exactly one more
-		//    member, pointing to the data to send.
-		// 3. The size of the message, excluding the type member.
-		// 4. The message type/kind to fetch. The point is, that
-		//    you can put many kinds of messages on the queue, but
-		//    in this case only the first one with type = SERVER_MESSAGE
-		//    will be retrieved. By passing 0, we could say that we
-		//    want *any* kind of message.
-		// 5. Flags, which we don't need.
+void msg_wait(int mq,struct Message* message,Benchmarks* bench) {
+
 		if (msgrcv(mq, message, 8, SERVER_MESSAGE, 0) < 8) {
 			throw("Error receiving on client-side");
 		}
-		memcpy(&bench.single_start, message->buffer, 8);
-        benchmark(&bench);
-		message->type = CLIENT_MESSAGE;
-		memset(message->buffer, '1', args->size);
-
-		// Same parameters as msgrcv, but no message-type
-		// (because it is determined by the message's member)
-		// Note that msgsend only returns 0 on success, not the
-		// number of bytes, so we don't have to check for < args->size
-		if (msgsnd(mq, message, args->size, 0) == -1) {
-			throw("Error sending on client-side");
-		}
-	}
-    evaluate(&bench, args);
-	free(message);
+		memcpy(&bench->single_start, &message->buffer, 8);
+        benchmark(bench);
+	
+    
 }
 
 int create_mq() {
@@ -71,20 +37,48 @@ int create_mq() {
 }
 
 int main(int argc, char* argv[]) {
+	unsigned long cnt = 0;
 	// A message-queue is simply identified
 	// by a numeric ID
 	int mq;
-
+    struct Message* message;
+	
 	// For command-line arguments
 	struct Arguments args;
 	parse_arguments(&args, argc, argv);
-
+   
 	if (args.size > MAXIMUM_MESSAGE_SIZE) {
 		args.size = MAXIMUM_MESSAGE_SIZE;
 	}
-
+    message = create_message(&args);
 	mq = create_mq();
-	communicate(mq, &args);
+    struct Benchmarks bench;
+	setup_benchmarks(&bench);
+	
+	//初始化完成
+	struct timeval startTime, currentTime;
+    gettimeofday(&startTime, NULL);
 
+	while (1) 
+	{
+	    
+    	gettimeofday(&currentTime, NULL);
+    	if ((currentTime.tv_usec - startTime.tv_usec) > 100000) {
+        	break;
+    }
+        message->type = CLIENT_MESSAGE;
+		memset(message->buffer, '1', args.size);
+
+		
+		if (msgsnd(mq, message, args.size, 0) == -1) {
+			throw("Error sending on client-side");
+		}
+
+   		msg_wait(mq,message,&bench);
+    	cnt++;
+    }
+	printf("\ncnt=%ld",cnt);
+    evaluate(&bench, &args);
+	free(message);
 	return EXIT_SUCCESS;
 }

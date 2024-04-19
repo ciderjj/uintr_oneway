@@ -81,31 +81,7 @@ void cleanup(int descriptor, void *buffer) {
 
 
 
-void communicate(int descriptor, struct Arguments *args, int busy_waiting) {
-	// Buffer into which to read our data
-	void *buffer;
-    struct Benchmarks bench;
-	buffer = malloc(args->size);
-    int count=args->count;
-	setup_benchmarks(&bench);
-	for (; count > 0; --count) {
-		// Receive data
-		if (receive(descriptor, &bench.single_start,8, busy_waiting) == -1) {
-			throw("Error receiving data on client-side");
-		}
 
-		benchmark(&bench);
-
-		memset(buffer, '*', args->size);
-
-		// Send data back
-		if (send(descriptor, buffer, args->size, 0) == -1) {
-			throw("Error sending data on client-side");
-		}
-	}
-    evaluate(&bench, args);
-	cleanup(descriptor, buffer);
-}
 
 void get_server_information(struct addrinfo **server_info) {
 	// For system call return values
@@ -124,16 +100,7 @@ void get_server_information(struct addrinfo **server_info) {
 	hints.ai_family = AF_UNSPEC;
 	// Stream socket (TCP) as opposed to datagram sockets (UDP)
 	hints.ai_socktype = SOCK_STREAM;
-	// By setting this flag to AI_PASSIVE we can pass NULL for the hostname
-	// in getaddrinfo so that the current machine hostname is implied
-	//  hints.ai_flags = AI_PASSIVE;
 
-	// This function will return address information for the given:
-	// 1. Hostname or IP address (as string in digits-and-dots notation).
-	// 2. The port of the address.
-	// 3. The struct of hints we supply for the address.
-	// 4. The addrinfo struct the function should populate with addresses
-	//    (remember that addrinfo is a linked list)
 	return_code = getaddrinfo(HOST, PORT, &hints, server_info);
 
 	if (return_code != 0) {
@@ -154,31 +121,7 @@ void setup_socket(int socket_descriptor, int busy_waiting) {
 }
 
 int create_socket(int busy_waiting) {
-	// Address info structs are basic (relatively large) structures
-	// containing various pieces of information about a host's address,
-	// such as:
-	// 1. ai_flags: A set of flags. If we set this to AI_PASSIVE, we can
-	//              pass NULL to the later call to getaddrinfo for it to
-	//              return the address info of the *local* machine (0.0.0.0)
-	// 2. ai_family: The address family, either AF_INET, AF_INET6 or AF_UNSPEC
-	//               (the latter makes this struct usable for IPv4 and IPv6)
-	//               note that AF stands for Address Family.
-	// 3. ai_socktype: The type of socket, either (TCP) SOCK_STREAM with
-	//                 connection or (UDP) SOCK_DGRAM for connectionless
-	//                 datagrams.
-	// 4. ai_protocol: If you want to specify a certain protocol for the socket
-	//                 type, i.e. TCP or UDP. By passing 0, the OS will choose
-	//                 the most appropriate protocol for the socket type (STREAM
-	//                 => TCP, DGRAM = UDP)
-	// 5. ai_addrlen: The length of the address. We'll usually not modify this
-	//                ourselves, but make use of it after it is populated via
-	//                getaddrinfo.
-	// 6. ai_addr: The Internet address. This is yet another struct, which
-	//             basically contains the IP address and TCP/UDP port.
-	// 7. ai_canonname: Canonical hostname.
-	// 8. ai_next: This struct is actually a node in a linked list. getaddrinfo
-	//             will sometimes return more than one address (e.g. one for IPv4
-	//             one for IPv6)
+
 	struct addrinfo *server_info = NULL;
 
 	// The file-descriptor of the socket we will open
@@ -195,11 +138,15 @@ int create_socket(int busy_waiting) {
 	return socket_descriptor;
 }
 
+
+
+
+
 int main(int argc, char *argv[]) {
 	// Sockets are returned by the OS as standard file descriptors.
 	// It will be used for all communication with the server.
 	int socket_descriptor;
-
+    unsigned long cnt = 0;
 	// Flag to determine whether or not to do busy waiting
 	// and not block the socket, or use normal blocking sockets.
 	int busy_waiting;
@@ -211,7 +158,35 @@ int main(int argc, char *argv[]) {
 	parse_arguments(&args, argc, argv);
 
 	socket_descriptor = create_socket(busy_waiting);
-	communicate(socket_descriptor, &args, busy_waiting);
+	struct Benchmarks bench;
+	setup_benchmarks(&bench);
+	void *buffer;
+	buffer = malloc(args.size);
+	//初始化完成
+	struct timeval startTime, currentTime;
+    gettimeofday(&startTime, NULL);
+	//communicate(socket_descriptor, &args, busy_waiting);
+	while (1) 
+	{
+	    
+    	gettimeofday(&currentTime, NULL);
+    	if ((currentTime.tv_usec - startTime.tv_usec) > 100000) {
+        	break;
+    }
+        if (send(socket_descriptor, buffer, args.size, 0) == -1) {
+			throw("Error sending data on client-side");
+		}
+   		if (receive(socket_descriptor, &bench.single_start,8, busy_waiting) == -1) {
+			throw("Error receiving data on client-side");
+		}
+
+		benchmark(&bench);
+    	cnt++;
+    }
+	printf("\ncnt=%ld",cnt);
+    evaluate(&bench, &args);
+	cleanup(socket_descriptor, buffer);
 
 	return EXIT_SUCCESS;
 }
+

@@ -42,18 +42,18 @@ void mmap_notify(atomic_char *guard) {
 }
 
 void communicate(char *file_memory, struct Arguments *args) {
-	int message;
+
 	atomic_char *guard = (atomic_char *)file_memory;
 
-	mmap_wait(guard);
-	for (message = 0; message < args->count; ++message) {
+
+	while (1) {
+		mmap_wait(guard);
 		uint64_t timestamp = now();
 
 		memcpy(file_memory+1, &timestamp,8);
 
 		mmap_notify(guard);
 
-		mmap_wait(guard);
 	}
 }
 

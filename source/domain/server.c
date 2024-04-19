@@ -20,23 +20,20 @@ void cleanup(int connection, void* buffer) {
 
 void communicate(int connection, struct Arguments* args, int busy_waiting) {
 
-	int message;
+	
 	void* buffer;
 
 	buffer = malloc(args->size);
 
 
-	for (message = 0; message < args->count; ++message) {
+	while(1) {
+		if (receive(connection, buffer, args->size, busy_waiting) == -1) {
+			throw("Error receiving on server-side");
+		}
 		uint64_t timestamp = now();
 
 		if (send(connection,&timestamp, 8, 0) < args->size) {
 			throw("Error sending on server-side");
-		}
-
-		memset(buffer, '*', args->size);
-
-		if (receive(connection, buffer, args->size, busy_waiting) == -1) {
-			throw("Error receiving on server-side");
 		}
 
 	}

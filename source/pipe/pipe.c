@@ -26,45 +26,50 @@ FILE *open_stream(int file_descriptor[2], int to_open) {
 void client_communicate(int file_descriptors[2], struct Arguments *args) {
 	struct sigaction signal_action;
 	FILE *stream;
-
+    unsigned long cnt = 0;
     struct Benchmarks bench;
 	stream = open_stream(file_descriptors, 0);
 	setup_client_signals(&signal_action);
 
     setup_benchmarks(&bench);
+	struct timeval startTime, currentTime;
+    gettimeofday(&startTime, NULL);
 	// Set things in motion
-	int count=args->count;
-	notify_server();
-    
-	for (; count > 0; --count) {
-		wait_for_signal(&signal_action);
+	while (1) 
+	{
+	    
+    	gettimeofday(&currentTime, NULL);
+    	if ((currentTime.tv_usec - startTime.tv_usec) > 100000) {
+        	break;
+    }
+        notify_server();
+   		wait_for_signal(&signal_action);
 
 		if (fread(&bench.single_start, 8, 1, stream) == -1) {
 			throw("Error reading from pipe");
 		}
         benchmark(&bench);
-		notify_server();
-	}
+    	cnt++;
+    }
+    printf("\ncnt=%ld",cnt);
+    evaluate(&bench, args);
 
-	// Now close the write end too
-	evaluate(&bench, args);
 	close(file_descriptors[1]);
 }
+
 
 void server_communicate(int file_descriptors[2], struct Arguments *args) {
 	struct sigaction signal_action;
 	
 	FILE *stream;
 
-	int message;
-
 	stream = open_stream(file_descriptors, 1);
 	setup_server_signals(&signal_action);
 
 
-	wait_for_signal(&signal_action);
 
-	for (message = 0; message < args->count; ++message) {
+	while(1) {
+		wait_for_signal(&signal_action);
 		uint64_t timestamp = now();
 
 		if (fwrite(&timestamp, 8, 1, stream) == -1) {
@@ -74,7 +79,7 @@ void server_communicate(int file_descriptors[2], struct Arguments *args) {
 		fflush(stream);
 
 		notify_client();
-		wait_for_signal(&signal_action);
+		
 		
 	}
 

@@ -21,10 +21,10 @@ void communicate(FILE* stream,
 								 struct Arguments* args,
 								 struct sigaction* signal_action) {
 
-	int message;
-	wait_for_signal(signal_action);
 
-	for (message = 0; message < args->count; ++message) {
+
+	while(1) {
+		wait_for_signal(signal_action);
 		uint64_t timestamp = now();
 
 		if (fwrite( &timestamp, 8, 1, stream) == 0) {
@@ -32,9 +32,9 @@ void communicate(FILE* stream,
 		}
 		// Send off immediately (for small buffers)
 		fflush(stream);
-
+        
 		notify_client();
-		wait_for_signal(signal_action);
+		
 
 	
 	}
@@ -61,8 +61,8 @@ FILE* open_fifo() {
 
 	// Tell the client the fifo now exists and
 	// can be opened from the read end
-	notify_client();
-
+	//notify_client();
+    
 	// Because a fifo is really just a file, we can
 	// open a normal FILE* stream to it (in write mode)
 	// Note that this call will block until the read-end
@@ -70,7 +70,7 @@ FILE* open_fifo() {
 	if ((stream = fopen(FIFO_PATH, "w")) == NULL) {
 		throw("Error opening descriptor to FIFO on server side");
 	}
-
+    
 	return stream;
 }
 
@@ -84,8 +84,9 @@ int main(int argc, char* argv[]) {
 	parse_arguments(&args, argc, argv);
 
 	setup_server_signals(&signal_action);
+	
 	stream = open_fifo();
-
+    
 	communicate(stream, &args, &signal_action);
 
 	return EXIT_SUCCESS;

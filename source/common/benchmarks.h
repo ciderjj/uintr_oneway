@@ -24,6 +24,8 @@ typedef struct Benchmarks {
 	// Squared sum (for standard deviation)
 	bench_t squared_sum;
 
+	int count;
+
 } Benchmarks;
 
 bench_t now();

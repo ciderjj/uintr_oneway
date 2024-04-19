@@ -37,23 +37,26 @@ void shm_notify(atomic_char* guard) {
 
 void communicate(char* shared_memory, struct Arguments* args) {
 
-	int message;
-	atomic_char* guard = (atomic_char*)shared_memory;
 
+	atomic_char* guard = (atomic_char*)shared_memory;
+    
 	// Wait for signal from client
-	shm_wait(guard);
-	for (message = 0; message < args->count; ++message) {
+	
+	while(1){
+
+        shm_wait(guard);
+
 		uint64_t timestamp = now();
 
 		// Write
 		memcpy(shared_memory + 1, &timestamp, sizeof(uint64_t));
-
+        
 
 		shm_notify(guard);
 
-		shm_wait(guard);
 
-		// Read
+
+		
 	
 
 	}
@@ -77,46 +80,12 @@ int main(int argc, char* argv[]) {
 
 	segment_key = generate_key("shm");
 
-	/*
-		The call that actually allocates the shared memory segment.
-		Arguments:
-			1. The shared memory key. This must be unique across the OS.
-			2. The number of bytes to allocate. This will be rounded up to the OS'
-				 pages size for alignment purposes.
-			3. The creation flags and permission bits, where:
-				 - IPC_CREAT means that a new segment is to be created
-				 - IPC_EXCL means that the call will fail if
-					 the segment-key is already taken (removed)
-				 - 0666 means read + write permission for user, group and world.
-		When the shared memory key already exists, this call will fail. To see
-		which keys are currently in use, and to remove a certain segment, you
-		can use the following shell commands:
-			- Use `ipcs -m` to show shared memory segments and their IDs
-			- Use `ipcrm -m <segment_id>` to remove/deallocate a shared memory segment
-	*/
 	segment_id = shmget(segment_key, 1 + args.size, IPC_CREAT | 0666);
 
 	if (segment_id < 0) {
 		throw("Error allocating segment");
 	}
 
-	/*
-		Once the shared memory segment has been created, it must be
-		attached to the address space of each process that wishes to
-		use it. For this, we pass:
-			1. The segment ID returned by shmget
-			2. A pointer at which to attach the shared memory segment. This
-				 address must be page-aligned. If you simply pass NULL, the OS
-				 will find a suitable region to attach the segment.
-			3. Flags, such as:
-				 - SHM_RND: round the second argument (the address at which to
-					 attach) down to a multiple of the page size. If you don't
-					 pass this flag but specify a non-null address as second argument
-					 you must ensure page-alignment yourself.
-				 - SHM_RDONLY: attach for reading only (independent of access bits)
-		shmat will return a pointer to the address space at which it attached the
-		shared memory. Children processes created with fork() inherit this segment.
-	*/
 	shared_memory = (char*)shmat(segment_id, NULL, 0);
 
 	if (shared_memory == (char*)-1) {
